@@ -1,0 +1,235 @@
+--Requete 1
+
+SELECT * FROM Agence;
+
+--Requete 2
+
+SELECT 
+    p.id_personne,
+    p.nom,
+    p.prenom,
+    p.date_naissance,
+    p.date_prise_poste
+FROM 
+    Personnel p
+JOIN 
+    AgentTechnique at ON p.id_personne = at.id_personne
+JOIN 
+    Agence a ON p.id_agence = a.id_agence
+JOIN 
+    adresse ad ON a.id_adresse = ad.id_adresse
+WHERE 
+    ad.ville = 'Bordeaux';
+
+
+--Requete 3
+
+SELECT COUNT(*) AS total_capteurs FROM capteur;
+
+
+--Requete 4
+
+SELECT * 
+FROM Rapport
+WHERE date_rapport BETWEEN '2018-01-01' AND '2022-12-31';
+
+--Requete 5
+
+SELECT 
+    r.nom_region,
+    d.date_mesure,
+    d.valeur_ppm
+FROM 
+    Gaz g
+JOIN 
+    capteur c ON g.id_gaz = c.id_gaz
+JOIN 
+    donnee d ON c.id_capteur = d.id_capteur
+JOIN 
+    Agence a ON c.id_agence = a.id_agence
+JOIN 
+    adresse ad ON a.id_adresse = ad.id_adresse
+JOIN 
+    region r ON ad.id_region = r.id_region
+WHERE 
+    g.nom_gaz = 'Méthane'
+    AND r.nom_region IN ('Ile-de-France', 'Bretagne', 'Occitanie')
+    AND d.date_mesure BETWEEN '2023-05-01' AND '2023-06-30';
+
+--Requete 6
+
+SELECT DISTINCT 
+    p.nom,
+    p.prenom
+FROM 
+    Personnel p
+JOIN 
+    AgentTechnique at ON p.id_personne = at.id_personne
+JOIN 
+    Entretient e ON at.id_personne = e.id_personne
+JOIN 
+    capteur c ON e.id_capteur = c.id_capteur
+JOIN 
+    Gaz g ON c.id_gaz = g.id_gaz
+WHERE 
+    g.type_gaz = 1;
+
+--Requete 7  LA REQUETE 7 NE RETOURNE RIEN CAR IL N'EST DEMANDE NUL PART D'INTEGRER NH3 DANS LA BASE DE DONNEES
+
+SELECT 
+    r.titre,
+    r.date_rapport
+FROM 
+    Rapport r
+JOIN 
+    Contient c ON r.id_rapport = c.id_rapport
+JOIN 
+    donnee d ON c.id_donnee = d.id_donnee
+JOIN 
+    capteur ca ON d.id_capteur = ca.id_capteur
+JOIN 
+    Gaz g ON ca.id_gaz = g.id_gaz
+WHERE 
+    g.nom_gaz = 'NH3'
+ORDER BY 
+    r.date_rapport DESC;
+
+
+--REQUETE 8 ERREUR DANS L'ENONCE PAS PFC MAIS HFC
+
+SELECT 
+    hc1.nom_region,
+    hc1.mois,
+    hc1.moyenne_ppm
+FROM (
+    SELECT 
+        r.nom_region,
+        DATE_FORMAT(d.date_mesure, '%Y-%m') AS mois,
+        AVG(d.valeur_ppm) AS moyenne_ppm
+    FROM 
+        donnee d
+    JOIN capteur c ON d.id_capteur = c.id_capteur
+    JOIN gaz g ON c.id_gaz = g.id_gaz
+    JOIN agence a ON c.id_agence = a.id_agence
+    JOIN adresse ad ON a.id_adresse = ad.id_adresse
+    JOIN region r ON ad.id_region = r.id_region
+    WHERE g.id_gaz = 4
+    GROUP BY r.nom_region, mois
+) AS hc1
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM (
+        SELECT 
+            r.nom_region,
+            DATE_FORMAT(d.date_mesure, '%Y-%m') AS mois,
+            AVG(d.valeur_ppm) AS moyenne_ppm
+        FROM 
+            donnee d
+        JOIN capteur c ON d.id_capteur = c.id_capteur
+        JOIN gaz g ON c.id_gaz = g.id_gaz
+        JOIN agence a ON c.id_agence = a.id_agence
+        JOIN adresse ad ON a.id_adresse = ad.id_adresse
+        JOIN region r ON ad.id_region = r.id_region
+        WHERE g.id_gaz = 4
+        GROUP BY r.nom_region, mois
+    ) AS hc2
+    WHERE hc2.nom_region = hc1.nom_region
+    AND hc2.moyenne_ppm < hc1.moyenne_ppm
+);
+
+
+--Requete 9
+
+SELECT 
+    g.nom_gaz,
+    g.sigle,
+    ROUND(AVG(d.valeur_ppm), 2) AS moyenne_ppm
+FROM 
+    donnee d
+JOIN capteur c ON d.id_capteur = c.id_capteur
+JOIN gaz g ON c.id_gaz = g.id_gaz
+JOIN agence a ON c.id_agence = a.id_agence
+JOIN adresse ad ON a.id_adresse = ad.id_adresse
+JOIN region r ON ad.id_region = r.id_region
+WHERE 
+    r.nom_region = 'Île-de-France'
+    AND d.date_mesure BETWEEN '2020-01-01' AND '2020-12-31'
+GROUP BY 
+    g.nom_gaz, g.sigle;
+
+
+--Requete 10
+
+SELECT 
+    p.nom,
+    p.prenom,
+    COUNT(DISTINCT r.id_rapport) AS nb_rapports,
+    ROUND(
+        COUNT(DISTINCT r.id_rapport) / 
+        (PERIOD_DIFF(DATE_FORMAT(CURDATE(), '%Y%m'), DATE_FORMAT(p.date_prise_poste, '%Y%m')) + 1),
+        2
+    ) AS taux_rapports_par_mois
+FROM 
+    Personnel p
+JOIN AgentAdministratif aa ON p.id_personne = aa.id_personne
+JOIN Rédige rj ON p.id_personne = rj.id_personne
+JOIN Rapport r ON rj.id_rapport = r.id_rapport
+JOIN Agence a ON p.id_agence = a.id_agence
+JOIN adresse ad ON a.id_adresse = ad.id_adresse
+WHERE 
+    ad.ville = 'Toulouse'
+GROUP BY 
+    p.id_personne;
+
+--Requete 11
+
+SELECT DISTINCT
+    r.id_rapport,
+    r.titre,
+    r.date_rapport
+FROM 
+    Rapport r
+JOIN 
+    Contient c ON r.id_rapport = c.id_rapport
+JOIN 
+    donnee d ON c.id_donnee = d.id_donnee
+JOIN 
+    capteur ca ON d.id_capteur = ca.id_capteur
+JOIN 
+    gaz g ON ca.id_gaz = g.id_gaz
+WHERE 
+    g.nom_gaz = 'Méthane'; -- Nom du gaz souhaité
+
+
+--Requete 12 ( Dans notre base de donnée rien n'apparait car il y a toujours plus de personnels que de capteurs)
+
+SELECT 
+    r.nom_region,
+    COUNT(DISTINCT c.id_capteur) AS nb_capteurs,
+    COUNT(DISTINCT p.id_personne) AS nb_personnel
+FROM 
+    region r
+JOIN adresse ad ON r.id_region = ad.id_region
+JOIN agence a ON ad.id_adresse = a.id_adresse
+LEFT JOIN capteur c ON a.id_agence = c.id_agence
+LEFT JOIN Personnel p ON a.id_agence = p.id_agence
+GROUP BY 
+    r.id_region
+HAVING 
+    COUNT(DISTINCT c.id_capteur) > COUNT(DISTINCT p.id_personne);
+
+
+--COMPLEMENT REQUETE 12 VOICI LA COMMANDE QUI PERMET DE REGARDER LES NOMBRES DE CAPTEURS ET PERSONNELS EN FONCTION DES REGIONS :
+
+SELECT 
+    r.nom_region,
+    COUNT(DISTINCT c.id_capteur) AS nb_capteurs,
+    COUNT(DISTINCT p.id_personne) AS nb_personnel
+FROM 
+    region r
+JOIN adresse ad ON r.id_region = ad.id_region
+JOIN agence a ON ad.id_adresse = a.id_adresse
+LEFT JOIN capteur c ON a.id_agence = c.id_agence
+LEFT JOIN Personnel p ON a.id_agence = p.id_agence
+GROUP BY 
+    r.nom_region;
